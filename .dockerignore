@@ -1,0 +1,17 @@
+# Docker ignore for backend
+venv/
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+node_modules/
+dist/
+.git
+trash/
+tests/
+output*.txt
+batch_progress*.txt

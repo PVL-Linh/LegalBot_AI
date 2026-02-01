@@ -1,0 +1,24 @@
+# Ignore test and trash directories
+/tests/
+/trash/
+/scripts/
+
+# Environment and secrets
+.env
+.env.local
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and outputs
+*.log
+output*.txt
+batch_progress*.txt
+
+# Editor/temp
+.vscode/
+*.swp
+.DS_Store
