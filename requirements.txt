@@ -17,6 +17,7 @@ langchain-text-splitters==0.2.4
 langchain-huggingface==0.0.3
 langgraph==0.2.16
 langsmith==0.1.99
+langchain-google-genai==1.0.10
 
 # AI/ML - lightweight versions only
 tiktoken==0.7.0
