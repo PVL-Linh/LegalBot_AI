@@ -48,16 +48,30 @@ base_llama_8b = ChatGroq(
     groq_api_key=os.getenv("GROQ_API_KEY")
 )
 
-# Tier 3: Gemini 1.5 Flash (Fallback Stability)
-base_gemini = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",
-    temperature=0,
-    google_api_key=os.getenv("GOOGLE_API_KEY")
-)
+# Tier 3: Gemini (Configurable - Fallback Stability)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+base_gemini = None
+if os.getenv("GOOGLE_API_KEY"):
+    try:
+        base_gemini = ChatGoogleGenerativeAI(
+            model=GEMINI_MODEL,
+            temperature=0,
+            google_api_key=os.getenv("GOOGLE_API_KEY")
+        )
+        log_to_file(f"INFO: Initialized Gemini model: {GEMINI_MODEL}")
+    except Exception as e:
+        log_to_file(f"WARNING: Failed to initialize Gemini model '{GEMINI_MODEL}': {e}")
+        base_gemini = None
+else:
+    log_to_file("INFO: GOOGLE_API_KEY not set - skipping Gemini initialization")
 
 # 2. Export global llm for simple tasks (Required by app/services/generator.py)
+fallbacks = [base_llama_8b]
+if base_gemini is not None:
+    fallbacks.append(base_gemini)
+
 llm = base_llama_70b.with_fallbacks(
-    fallbacks=[base_llama_8b, base_gemini],
+    fallbacks=fallbacks,
     exceptions_to_handle=(Exception,)
 )
 
@@ -74,7 +88,13 @@ tool_node = ToolNode(tools)
 # 3. Tool-bound versions for the Agent Graph
 llama_70b_with_tools = base_llama_70b.bind_tools(tools)
 llama_8b_with_tools = base_llama_8b.bind_tools(tools)
-gemini_with_tools = base_gemini.bind_tools(tools)
+if base_gemini is not None:
+    gemini_with_tools = base_gemini.bind_tools(tools)
+else:
+    gemini_with_tools = None
+
+# Models to try (main -> fallback). Gemini appended only if available
+    
 
 async def call_model(state: AgentState):
     summary = state.get("summary", "")
@@ -103,7 +123,7 @@ QUY TẮC PHẢN HỒI (BẮT BUỘC):
     models_to_try = [
         ("Llama 3.3 70B", llama_70b_with_tools),
         ("Llama 3.1 8B", llama_8b_with_tools),
-        ("Gemini 1.5 Flash", gemini_with_tools)
+        ("Gemini 2.5 Flash", gemini_with_tools)
     ]
     
     last_error = None
@@ -116,8 +136,12 @@ QUY TẮC PHẢN HỒI (BẮT BUỘC):
         except Exception as e:
             last_error = e
             error_str = str(e).lower()
+            # Specific handling for NotFound model errors
+            if "not found" in error_str or "models/" in error_str:
+                log_to_file(f"WARNING Graph: Model {model_name} returned NotFound error ({error_str[:120]}). Skipping to next fallback.")
+                continue
+
             log_to_file(f"DEBUG Graph: {model_name} FAILED: {error_str[:100]}")
-            
             # If rate limit or similar, continue to fallback
             if "429" in error_str or "rate limit" in error_str or "overloaded" in error_str or "unavailable" in error_str:
                 continue

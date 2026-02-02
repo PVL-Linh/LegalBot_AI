@@ -134,6 +134,9 @@ async def get_conversation(conversation_id: str, current_user: dict = Depends(ge
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"CRITICAL ERROR in get_conversation: {e}\n{tb}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
